@@ -9,7 +9,18 @@ org 100h
 
 Inicio:
     MOV CL, 5
-    JMP CheckBotao
+
+CheckObsInicio:
+    MOV BX, Sensos_preseca
+    MOV DL, [BX]
+    CMP DL, 1
+    JZ Obstruido
+
+CheckResetInicio:
+    MOV BX, FlagReset
+    MOV AL, [BX]
+    CMP AL, 1
+    JZ GoToTarget
     
 CheckBotao:
     MOV BX, Botao_parar_elevador
@@ -17,7 +28,7 @@ CheckBotao:
     CMP AL, 1
     JZ ElevadorParado
     
-ChekcDefTarget:    
+CheckDefTarget:    
     MOV BX, ReqQuant
     MOV DL, [BX]
     CMP DL, 0
@@ -35,7 +46,7 @@ CheckTeclado:
     INT 16h
     JNZ InputTeclado
     
-ChecGoTarget:    
+CheckGoTarget:    
     MOV BX, Target
     MOV DL, [BX]
     CMP DL, 0
@@ -45,6 +56,10 @@ ChecGoTarget:
 InputTeclado:
     MOV AH, 0
     INT 16h
+
+CheckReset:
+    CMP AL, 120
+    JZ ResetarElevador
 
 CheckPararExecucao:    
     CMP AL, 1bh
@@ -60,7 +75,7 @@ CheckLivrarElevador:
     
 CheckObsElevador:
     CMP AL, 115
-    JZ CheckPorta
+    JZ CheckPortaObs
                    
 CheckDesobsElevador:
     CMP AL, 83
@@ -71,22 +86,19 @@ CheckElevadorParado:
     MOV DL, [BX]
     CMP DL, 1
     JZ Inicio         
-                    
-IncReqQuant:
-    MOV BX, ReqQuant
-    MOV CL, [BX]
-    INC CL
-    MOV ReqQuant, CL
             
 CheckComando:
     MOV BX, Sensor_passou_andar
     MOV CL, [BX]
-    CMP AL, 61h
+    CMP AL, 57
     JS ComandoExterno
-    JNS ComandoInterno
+    CMP AL, 105
+    JS ComandoInterno
+    JMP CheckObstruido
 
 ComandoInterno:
-    SUB AL, 61h
+    CALL IncReqQuant
+    SUB AL, 97
     MOV BH, 0
     MOV BL, AL
     MOV ReqI[BX], 1
@@ -94,7 +106,8 @@ ComandoInterno:
     JMP CheckObstruido
 
 ComandoExterno:
-    SUB AL, 31h
+    CALL IncReqQuant
+    SUB AL, 49
     MOV BH, 0
     MOV BL, AL
     MOV ReqE[BX], 1
@@ -111,12 +124,12 @@ CheckObstruido:
 DefinirTarget:
     MOV Recebeu_comando, 0
     MOV BX, 7
-    CALL DefinirTargetLoopE
+    CALL DefinirTargetLoopI
     MOV BX, Target
     MOV AL, [BX]
     MOV BX, 7
     CMP AL, 0
-    JZ DefinirTargetLoopI
+    JZ DefinirTargetLoopE
     JMP CheckBotao
 
 DefinirTargetLoopE:
@@ -125,7 +138,7 @@ DefinirTargetLoopE:
     JZ FocusTarget
     DEC BX
     JNS DefinirTargetLoopE
-    RET
+    JMP Inicio
 
 DefinirTargetLoopI:
     MOV AL, ReqI[BX] 
@@ -133,7 +146,7 @@ DefinirTargetLoopI:
     JZ FocusTarget
     DEC BX
     JNS DefinirTargetLoopI
-    JMP Inicio
+    RET
 
 FocusTarget:
     INC BX
@@ -157,6 +170,7 @@ ChegouTarget:
     MOV ReqQuant, AL
     MOV BX, Target
     MOV AL, [BX]
+    MOV Sensor_passou_andar, AL
     DEC AL
     MOV BH, 0
     MOV BL, AL
@@ -164,9 +178,8 @@ ChegouTarget:
     MOV ReqI[BX], 0
     MOV Target, 0
     MOV EmMovimento, 0
-    MOV DX, ABREPORTA
-    CALL PrintMsg
-    MOV Porta_Aberta, 1
+    MOV FlagReset, 0
+    CALL CheckPortaTarget
     CALL PrintStatus 
     JMP Inicio
 
@@ -177,6 +190,8 @@ SubirAndar:
     MOV Sensor_passou_andar, CL
     CMP CL, 8
     JZ ElevadorNoTopo
+    MOV Elevador_no_Topo, 0
+    MOV Elevador_na_Base, 0
     MOV  DX, SUBIU
     CALL PrintMsg
     JMP Inicio
@@ -188,6 +203,8 @@ DescerAndar:
     MOV Sensor_passou_andar, CL
     CMP CL, 1
     JZ ElevadorNaBase
+    MOV Elevador_na_Base, 0
+    MOV Elevador_no_Topo, 0
     MOV  DX, DESCEU
     CALL PrintMsg
     JMP Inicio
@@ -249,6 +266,38 @@ ObstruirElevador:
     
 DesobistruirElevador:
     MOV Sensos_preseca, 0
+    JMP Inicio
+    
+ResetarElevador:
+    MOV ReqE[BX], 0
+    MOV Botao_parar_elevador, 0
+    MOV Elevador_na_Base, 0
+    MOV Elevador_no_Topo, 1
+    MOV Sensor_passou_andar, 8
+    MOV Recebeu_comando, 0
+    MOV EmMovimento, 1
+    MOV Target, 1
+    MOV ReqQuant, 0
+    MOV FlagRegQuant, 0
+    MOV FlagReset, 1 
+    MOV BX, Porta_Aberta
+    MOV AL, [BX]
+    CMP AL, 0
+    JZ FecharPortaReset
+    MOV BX, 7
+    JMP ZerarRequests
+    
+FecharPortaReset:
+    MOV Porta_Aberta, 0   
+    MOV DX, FECHAPORTA
+    CALL PrintMsg
+    MOV BX, 7
+    
+ZerarRequests:
+    MOV ReqI[BX], 0
+    MOV ReqE[BX], 0
+    DEC BX
+    JNS ZerarRequests   
     JMP Inicio
 
 PararElevador: ;Desvio executado quando alguem aperta o botao de parar o elevador
@@ -383,20 +432,50 @@ PrintNumeroAndar:
 PrintAndarStatus:
     MOV DX, PASSOUANDAR
     CALL PrintMsg
+    MOV BX, FlagReset
+    MOV AL, [BX]
+    CMP AL, 1
+    JZ UnknownFloor
     MOV BX, Sensor_passou_andar
     MOV AL, [BX]
     ADD AL, 30h
     MOV AH, 0eh
     INT 10h
     RET
+    
+UnknownFloor:
+    MOV AH, 0eh
+    MOV AL, 63
+    INT 10h
+    RET
 
-CheckPorta:
+CheckPortaObs:
     MOV BX, Porta_Aberta
     MOV DL, [BX]
     CMP DL, 1
     JZ ObstruirElevador
     JMP CheckDesobsElevador
-
+    
+CheckPortaTarget:
+    MOV BX, Porta_Aberta
+    MOV DL, [BX]
+    CMP DL, 1
+    JNZ AbrirPorta
+    RET
+    
+AbrirPorta:
+    MOV DX, ABREPORTA
+    CALL PrintMsg
+    MOV Porta_Aberta, 1
+    RET
+    
+IncReqQuant:
+    MOV BX, ReqQuant
+    MOV CL, [BX]
+    INC CL
+    MOV ReqQuant, CL
+    RET
+    
 PararExecucao:
     NOP
     RET
@@ -407,13 +486,14 @@ Botao_parar_elevador: DB 0
 Elevador_na_Base: DB 0
 Elevador_no_Topo: DB 0
 Porta_Aberta: DB 1
-Sensos_preseca: DB 0 ;Implementar
+Sensos_preseca: DB 0
 Sensor_passou_andar: DB 1
 Recebeu_comando: DB 0
 EmMovimento: DB 0
 Target: DB 0
 ReqQuant: DB 0
 FlagRegQuant: DB 0
+FlagReset: DB 0
 
 SUBIU: DB "Move para cima", 0Dh,0Ah, "$" 
 DESCEU: DB "Move para baixo", 0Dh,0Ah, "$"
