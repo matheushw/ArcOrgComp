@@ -7,33 +7,34 @@
 
 org 100h
 
-Inicio:
+Inicio: ;Reinicializa o loop de 5 iteracoes, definido como meio tempo entre cada acao do elevador.
     MOV CL, 5
 
-CheckObsInicio:
+CheckObsInicio: ;Checa se a porta do elevador esta obstruida
     MOV BX, Sensos_preseca
     MOV DL, [BX]
     CMP DL, 1
     JZ Obstruido
 
-CheckResetInicio:
+CheckResetInicio: ;Caso tenha faltado luz (Botao de reset)
     MOV BX, FlagReset
     MOV AL, [BX]
     CMP AL, 1
     JZ GoToTarget
     
-CheckBotao:
+CheckBotao: ;Checa se o botao de parar o elevador foi pressionado
     MOV BX, Botao_parar_elevador
     MOV AL, [BX]
     CMP AL, 1
     JZ ElevadorParado
     
-CheckDefTarget:    
+CheckDefTarget: ;Caso haja nao haja      
     MOV BX, ReqQuant
     MOV DL, [BX]
     CMP DL, 0
     JZ CheckTeclado
-    
+
+CheckEmMovimento:    
     MOV BX, EmMovimento
     MOV DH, [BX]
     CMP DH, 0
@@ -277,7 +278,7 @@ ResetarElevador:
     MOV Recebeu_comando, 0
     MOV EmMovimento, 1
     MOV Target, 1
-    MOV ReqQuant, 0
+    MOV ReqQuant, 1
     MOV FlagRegQuant, 0
     MOV FlagReset, 1 
     MOV BX, Porta_Aberta
